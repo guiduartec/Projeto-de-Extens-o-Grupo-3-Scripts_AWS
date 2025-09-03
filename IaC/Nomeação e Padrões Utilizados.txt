@@ -1,0 +1,75 @@
+Nomeação e Padrões Utilizados:
+# AMI ID (ami-0e86e20dae9224db8): 
+# - Amazon Linux 2023 na região us-east-1
+# - Escolhido por ser uma imagem base atualizada e mantida pela AWS
+
+# Zonas de Disponibilidade (us-east-1a, us-east-1b, us-east-1c):
+# - Distribuídas em 3 AZs diferentes para alta disponibilidade
+# - Região us-east-1 (N. Virginia) por ser uma das mais completas e estáveis
+
+# CIDR Blocks:
+# - VPC: 10.0.0.0/16 (65.536 IPs disponíveis)
+# - Subnets Públicas: 10.0.1.0/24, 10.0.2.0/24, 10.0.3.0/24 (256 IPs cada)
+# - Subnets Privadas: 10.0.4.0/24, 10.0.5.0/24, 10.0.6.0/24 (256 IPs cada)
+# - Organizado para fácil identificação e sem sobreposição
+
+# Padrão de Nomeação:
+# - Instâncias: ${var.project_name}-app-server-${count.index + 1}
+# - Subnets: ${var.project_name}-public/private-subnet-${count.index + 1}
+# - Todos os recursos seguem o padrão: projeto-tipo-número
+
+-----------------------------------------------------------------------------------------------------
+
+Script de User Data
+# User Data Script:
+user_data = <<-EOF
+  #!/bin/bash
+  yum update -y                    # Atualiza todos os pacotes do sistema
+  yum install -y httpd             # Instala o servidor web Apache
+  systemctl start httpd            # Inicia o serviço do Apache
+  systemctl enable httpd           # Configura para iniciar no boot
+  echo "<h1>Hello...</h1>"         # Cria uma página HTML básica para teste
+EOF
+# Este script é executado na primeira inicialização da instância
+# Automatiza a configuração do servidor web
+
+-----------------------------------------------------------------------------------------------------
+
+Associação de Subnet e Security Group:
+subnet_id = aws_subnet.private[count.index % length(aws_subnet.private)].id
+# - count.index % length: Distribui as instâncias de forma circular entre as subnets
+# - Garante distribuição uniforme das instâncias entre as AZs
+
+vpc_security_group_ids = [aws_security_group.ec2.id]
+# - Associa o security group às instâncias
+# - Controla o tráfego de entrada/saída
+
+-----------------------------------------------------------------------------------------------------
+
+Lógica de Criação de Recursos com Count:
+# Criação de Múltiplos Recursos:
+count = length(var.availability_zones)  
+# - Cria um recurso para cada AZ configurada
+# - Permite escalar horizontalmente de forma automática
+
+vpc_id = aws_vpc.main.id          # Associa recurso à VPC principal
+cidr_block = var.public_subnets[count.index]  # Atribui CIDR sequencialmente
+availability_zone = var.availability_zones[count.index]  # Distribui entre AZs
+
+map_public_ip_on_launch = true    # Para subnets públicas: atribui IP público
+
+tags = {
+  Name = "${var.project_name}-public-subnet-${count.index + 1}"
+  # Nomeação sequencial para fácil identificação
+  # count.index + 1: Evita começar do zero para melhor legibilidade
+}
+
+-----------------------------------------------------------------------------------------------------
+
+Esta estrutura permite:
+
+Escalabilidade automática entre AZs
+Nomeação consistente e previsível
+Distribuição uniforme de carga
+Fácil manutenção e identificação de recursos
+Automatização da configuração inicial

@@ -53,13 +53,13 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "Lista de zonas de disponibilidade"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  default     = ["us-east-1a", "us-east-1b"]
 }
 
 variable "public_subnets" {
   description = "Lista de CIDRs para subnets públicas"
   type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
 variable "private_subnets" {
@@ -68,8 +68,14 @@ variable "private_subnets" {
   default     = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
 }
 
-variable "instance_count" {
-  description = "Número de instâncias EC2 a serem criadas"
+variable "public_instance_count" {
+  description = "Número de instâncias EC2 públicas (uma por subnet pública)"
+  type        = number
+  default     = 2
+}
+
+variable "private_instance_count" {
+  description = "Número de instâncias EC2 privadas"
   type        = number
   default     = 3
 }
@@ -77,7 +83,7 @@ variable "instance_count" {
 variable "ami_id" {
   description = "ID da AMI para as instâncias EC2"
   type        = string
-  default     = "ami-0e86e20dae9224db8"  # Amazon Linux 2023
+  default     = "ami-0e86e20dae9224db8" # Amazon Linux 2023
 }
 
 variable "instance_type" {
@@ -89,7 +95,7 @@ variable "instance_type" {
 variable "admin_ip" {
   description = "IP permitido para acesso SSH"
   type        = string
-  default     = "0.0.0.0/0"  # Alterar para seu IP em produção
+  default     = "0.0.0.0/0" # Alterar para seu IP em produção
 }
 
 # -----------------------------------------------------
@@ -235,10 +241,14 @@ resource "aws_security_group" "ec2" {
 }
 
 # -----------------------------------------------------
-# EC2 INSTANCES
+# EC2 INSTANCIAS
+# -----------------------------------------------------
+
+# -----------------------------------------------------
+# PRIVADA
 # -----------------------------------------------------
 resource "aws_instance" "app_servers" {
-  count = var.instance_count
+  count = var.private_instance_count
 
   ami           = var.ami_id
   instance_type = var.instance_type
@@ -266,6 +276,39 @@ resource "aws_instance" "app_servers" {
 }
 
 # -----------------------------------------------------
+# PÚBLICA
+# -----------------------------------------------------
+resource "aws_instance" "public_instance" {
+  count = var.public_instance_count
+
+  ami           = var.ami_id
+  instance_type = var.instance_type
+
+  subnet_id              = aws_subnet.public[count.index % length(aws_subnet.public)].id
+  vpc_security_group_ids = [aws_security_group.ec2.id]
+
+  associate_public_ip_address = true
+
+  user_data = <<-EOF
+              #!/bin/bash
+              yum update -y
+              yum install -y httpd
+              systemctl start httpd
+              systemctl enable httpd
+              echo "<h1>Hello from Public EC2 instance $(hostname -f)</h1>" > /var/www/html/index.html
+              EOF
+
+  root_block_device {
+    volume_size = 30
+    volume_type = "gp3"
+  }
+
+  tags = {
+    Name = "${var.project_name}-public-server-${count.index + 1}"
+  }
+}
+
+# -----------------------------------------------------
 # LOAD BALANCER
 # -----------------------------------------------------
 resource "aws_lb" "main" {
@@ -289,12 +332,12 @@ resource "aws_lb_target_group" "main" {
   health_check {
     enabled             = true
     healthy_threshold   = 2
-    interval           = 30
-    matcher            = "200"
-    path               = "/"
-    port               = "traffic-port"
-    protocol           = "HTTP"
-    timeout            = 5
+    interval            = 30
+    matcher             = "200"
+    path                = "/"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
     unhealthy_threshold = 2
   }
 
@@ -314,10 +357,10 @@ resource "aws_lb_listener" "main" {
   }
 }
 
-resource "aws_lb_target_group_attachment" "main" {
-  count            = length(aws_instance.app_servers)
+resource "aws_lb_target_group_attachment" "public" {
+  count            = var.public_instance_count
   target_group_arn = aws_lb_target_group.main.arn
-  target_id        = aws_instance.app_servers[count.index].id
+  target_id        = aws_instance.public_instance[count.index].id
   port             = 80
 }
 

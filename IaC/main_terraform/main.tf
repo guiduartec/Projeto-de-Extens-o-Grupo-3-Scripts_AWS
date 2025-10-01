@@ -391,3 +391,27 @@ output "private_subnet_ids" {
   description = "IDs das subnets privadas"
   value       = aws_subnet.private[*].id
 }
+
+# -----------------------------------------------------
+# FUNÇÃO LAMBDA
+# -----------------------------------------------------
+
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "funcao_lambda.py"
+  output_path = "funcao_lambda.zip"
+}
+
+data "aws_iam_role" "lab_role" {
+  name = "LabRole"
+}
+
+resource "aws_lambda_function" "minha_funcao_lambda" {
+  function_name = "funcao-terraform-grupo3"
+  handler       = "funcao_lambda.lambda_handler"
+  runtime       = "python3.9"
+  role          = data.aws_iam_role.lab_role.arn
+  filename      = data.archive_file.lambda_zip.output_base64sha256
+
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+} 

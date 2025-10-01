@@ -10,7 +10,6 @@ from diagrams.custom import Custom
 with Diagram("Arq AWS", show=False, direction="BT", 
              graph_attr={"splines": "ortho", "nodesep": "0.25", "ranksep": "3"}, node_attr={"fontsize": "17"}):
 
-
     with Cluster(""):
         usuario = User("Usuário")
         admin = User("Admin\nSSH")

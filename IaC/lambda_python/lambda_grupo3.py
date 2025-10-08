@@ -1,5 +1,7 @@
 import boto3
 import json
+import io
+import csv
 
 # ======== Configuração AWS =======
 
@@ -54,6 +56,35 @@ def ler_arquivo_s3(fileNameOnBucket):
 
    except Exception as e:
             print("Erro ao ler o arquivo: {e}")    
+
+
+def tratar_dados(dados):
+    try:
+        entrada = io.StringIO(dados)
+        saida = io.StringIO()
+
+        leitor = csv.reader(entrada)
+        escritor = csv.writer(saida)
+
+        for linha in leitor:
+            # Ignora linhas completamente vazias
+            if not any(linha):
+                continue
+
+            nova_linha = []
+            for campo in linha:
+                campo_limpo = campo.strip().upper()  # remove espaços e deixa maiúsculo
+                if campo_limpo == "":
+                    campo_limpo = "N/A"  # substitui vazio por N/A
+                nova_linha.append(campo_limpo)
+
+            escritor.writerow(nova_linha)
+
+        return saida.getvalue()
+
+    except Exception as e:
+        print(f"Erro ao tratar dados: {e}")
+        return dados  
 
 
 def enviar_para_trusted(nome_arquivo, dados):

@@ -52,8 +52,6 @@ def ler_arquivo_s3(fileNameOnBucket):
         dados = conteudo_arquivo['Body'].read().decode('utf-8')
         return dados
 
-        print(dados)
-
    except Exception as e:
             print("Erro ao ler o arquivo: {e}")    
 

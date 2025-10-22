@@ -1,0 +1,7 @@
+services:
+  db:
+    image: brunoyujitaka/proj_ext_database:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: "${senha_db}"
+    ports:
+      - "3307:3306"

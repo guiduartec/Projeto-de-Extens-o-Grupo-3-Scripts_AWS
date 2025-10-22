@@ -1,0 +1,11 @@
+services:
+  db:
+    image: brunoyujitaka/proj_ext_backend:latest
+    environment:
+      NOME: "${DB_USR}"
+      SENHA: "${SENHA_DB}"
+      BUCKET: "${BUCKET}"
+      DB_HOST: "${DB_HOST}"
+      DB_PORT: "${DB_PORT}"
+    ports:
+      - "8080:8080"

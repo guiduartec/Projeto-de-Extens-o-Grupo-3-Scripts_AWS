@@ -83,7 +83,7 @@ variable "private_instance_count" {
 variable "ami_id" {
   description = "ID da AMI para as instâncias EC2"
   type        = string
-  default     = "ami-0e86e20dae9224db8" # Amazon Linux 2023
+  default     = "ami-0e86e20dae9224db8" # UBUNTU
 }
 
 variable "instance_type" {
@@ -286,6 +286,7 @@ resource "aws_instance" "public_instance" {
 
   subnet_id              = aws_subnet.public[count.index % length(aws_subnet.public)].id
   vpc_security_group_ids = [aws_security_group.ec2.id]
+  key_name = "vockey"
 
   associate_public_ip_address = true
 
@@ -396,47 +397,47 @@ resource "aws_instance" "public_instance" {
 # FUNÇÃO LAMBDA
 # -----------------------------------------------------
 
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_file = "../lambda_python/lambda_grupo3.py"
-  output_path = "lambda_grupo3.zip"
-}
+# data "archive_file" "lambda_zip" {
+#   type        = "zip"
+#   source_file = "../lambda_python/lambda_grupo3.py"
+#   output_path = "lambda_grupo3.zip"
+# }
 
-data "aws_iam_role" "lab_role" {
-  name = "LabRole"
-}
+# data "aws_iam_role" "lab_role" {
+#   name = "LabRole"
+# }
 
-resource "aws_lambda_function" "minha_funcao_lambda" {
-  function_name = "funcao-terraform-grupo3"
-  handler       = "lambda_grupo3.lambda_handler"
-  runtime       = "python3.9"
-  role          = data.aws_iam_role.lab_role.arn
-  filename      = data.archive_file.lambda_zip.output_path
+# resource "aws_lambda_function" "minha_funcao_lambda" {
+#   function_name = "funcao-terraform-grupo3"
+#   handler       = "lambda_grupo3.lambda_handler"
+#   runtime       = "python3.9"
+#   role          = data.aws_iam_role.lab_role.arn
+#   filename      = data.archive_file.lambda_zip.output_path
 
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-} 
+#   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+# } 
 
 # -----------------------------------------------------
 # Permissão para o S3 invocar a Lambda
 # -----------------------------------------------------
-resource "aws_lambda_permission" "allow_s3_invoke" {
-  statement_id  = "AllowExecutionFromS3"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.minha_funcao_lambda.function_name
-  principal     = "s3.amazonaws.com"
-  source_arn    = "arn:aws:s3:::bucket-raw-teste-lambda"
-}
+# resource "aws_lambda_permission" "allow_s3_invoke" {
+#   statement_id  = "AllowExecutionFromS3"
+#   action        = "lambda:InvokeFunction"
+#   function_name = aws_lambda_function.minha_funcao_lambda.function_name
+#   principal     = "s3.amazonaws.com"
+#   source_arn    = "arn:aws:s3:::bucket-raw-teste-lambda"
+# }
 
 # -----------------------------------------------------
 # NOTIFICAÇÃO DO BUCKET (gatilho)
 # -----------------------------------------------------
-resource "aws_s3_bucket_notification" "raw_notification" {
-  bucket = "bucket-raw-teste-lambda"
+# resource "aws_s3_bucket_notification" "raw_notification" {
+#   bucket = "bucket-raw-teste-lambda"
 
-  lambda_function {
-    lambda_function_arn = aws_lambda_function.minha_funcao_lambda.arn
-    events              = ["s3:ObjectCreated:*"] 
-  }
+#   lambda_function {
+#     lambda_function_arn = aws_lambda_function.minha_funcao_lambda.arn
+#     events              = ["s3:ObjectCreated:*"] 
+#   }
 
-  depends_on = [aws_lambda_permission.allow_s3_invoke]
-}
+#   depends_on = [aws_lambda_permission.allow_s3_invoke]
+# }

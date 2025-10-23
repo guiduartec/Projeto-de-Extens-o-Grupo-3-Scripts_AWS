@@ -278,7 +278,7 @@ resource "aws_instance" "app_servers" {
 # -----------------------------------------------------
 # PÚBLICA
 # -----------------------------------------------------
-resource "aws_instance" "public_instance" {
+resource "aws_instance" "public_instance_oogabooga" {
   count = var.public_instance_count
 
   ami           = var.ami_id
@@ -286,23 +286,30 @@ resource "aws_instance" "public_instance" {
 
   subnet_id              = aws_subnet.public[count.index % length(aws_subnet.public)].id
   vpc_security_group_ids = [aws_security_group.ec2.id]
-  key_name = "vockey"
+  key_name               = "vockey"
 
   associate_public_ip_address = true
 
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              yum install -y httpd
-              systemctl start httpd
-              systemctl enable httpd
-              echo "<h1>Hello from Public EC2 instance $(hostname -f)</h1>" > /var/www/html/index.html
-              EOF
+  connection {
+    user        = "ubuntu"
+    type        = "ssh"
+    private_key = file("./labsuser.pem")
+    host        = self.public_ip
+  }
+
+  provisioner "file" {
+    source      = "scripts_front/compose.yaml" # arquivo docker-compose para o RabbitMQ
+    destination = "/home/ubuntu/compose.yaml"
+  }
+
+  user_data = file("scripts_front/instalar_docker_ubuntu.sh")
 
   root_block_device {
     volume_size = 30
     volume_type = "gp3"
   }
+
+
 
   tags = {
     Name = "${var.project_name}-public-server-${count.index + 1}"

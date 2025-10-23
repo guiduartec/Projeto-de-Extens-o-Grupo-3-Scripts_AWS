@@ -22,3 +22,6 @@ crash.*.log
 
 # .env do Compose de BD
 ./Docker/Database/.env
+
+# private key
+IaC/main_terraform/labsuser.pem

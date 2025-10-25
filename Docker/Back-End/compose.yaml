@@ -1,5 +1,5 @@
 services:
-  db:
+  backend:
     image: brunoyujitaka/proj_ext_backend:latest
     environment:
       NOME: "${DB_USR}"

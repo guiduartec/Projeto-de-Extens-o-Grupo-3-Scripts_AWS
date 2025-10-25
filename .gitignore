@@ -20,8 +20,11 @@ crash.*.log
 # Aquivos de lock
 .terraform.lock.*
 
+# .env do Compose de Back
+Docker/Back-End/.env
+
 # .env do Compose de BD
-./Docker/Database/.env
+Docker/Database/.env
 
 # private key
 IaC/main_terraform/labsuser.pem

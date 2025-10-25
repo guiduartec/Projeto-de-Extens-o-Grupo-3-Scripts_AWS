@@ -1,0 +1,6 @@
+services:
+  web_server:
+    image: brunoyujitaka/proj_ext_frontend:latest
+    ports:
+      - "80:80"
+    restart: unless-stopped

@@ -2,6 +2,6 @@ services:
   db:
     image: brunoyujitaka/proj_ext_database:latest
     environment:
-      MYSQL_ROOT_PASSWORD: "${SENHA_DB}"
+      MYSQL_ROOT_PASSWORD: "venuste"
     ports:
       - "3307:3306"

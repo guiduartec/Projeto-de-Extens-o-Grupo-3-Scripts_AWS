@@ -14,7 +14,7 @@ provider "aws" {
 }
 
 # CIDR 10.0.0.0/24
-resource "aws_vpc" "vpc_cco" {
+resource "aws_vpc" "vpc_g3" {
   cidr_block = "10.0.0.0/24"
   tags = {
     Name = "vpc-2cco"
@@ -23,16 +23,16 @@ resource "aws_vpc" "vpc_cco" {
 
 # Sub-rede pública
 resource "aws_subnet" "subrede_publica" {
-  vpc_id     = aws_vpc.vpc_cco.id
+  vpc_id     = aws_vpc.vpc_g3.id
   cidr_block = "10.0.0.0/25"
   tags = {
     Name = "subrede-publica"
   }
 }
 
-# Ssub-rede privada
+# Sub-rede privada
 resource "aws_subnet" "subrede_privada" {
-  vpc_id            = aws_vpc.vpc_cco.id
+  vpc_id            = aws_vpc.vpc_g3.id
   availability_zone = "us-east-1c"
   cidr_block        = "10.0.0.128/25"
   tags = {
@@ -42,7 +42,7 @@ resource "aws_subnet" "subrede_privada" {
 
 # Internet Gateway
 resource "aws_internet_gateway" "igw_cco" {
-  vpc_id = aws_vpc.vpc_cco.id
+  vpc_id = aws_vpc.vpc_g3.id
   tags = {
     Name = "cco-igw"
   }
@@ -50,7 +50,7 @@ resource "aws_internet_gateway" "igw_cco" {
 
 # Route Table
 resource "aws_route_table" "route_table_publica" {
-  vpc_id = aws_vpc.vpc_cco.id
+  vpc_id = aws_vpc.vpc_g3.id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw_cco.id
@@ -65,11 +65,11 @@ resource "aws_route_table_association" "subrede_publica" {
   route_table_id = aws_route_table.route_table_publica.id
 }
 
-# Security Group instância pública
+# Security Group instância pública (Front-End)
 resource "aws_security_group" "sg_publica" {
   name        = "sg_publica"
   description = "Acesso SSH"
-  vpc_id      = aws_vpc.vpc_cco.id
+  vpc_id      = aws_vpc.vpc_g3.id
 
   ingress {
     from_port   = 22
@@ -93,17 +93,59 @@ resource "aws_security_group" "sg_publica" {
   }
 }
 
+# Security Group instância pública (RabbitMQ)
+resource "aws_security_group" "rabbitmq_sg" {
+  name        = "rabbitmq-sg"
+  description = "Trafego para RabbitMQ e SSH"
+  vpc_id      = aws_vpc.vpc_g3.id
+
+  ingress {
+    description = "Acesso SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "AMQP"
+    from_port   = 5672
+    to_port     = 5672
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "RabbitMQ UI"
+    from_port   = 15672
+    to_port     = 15672
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "SG RabbitMQ"
+  }
+}
+
 # Security Group instância privada (Banco de Dados)
 resource "aws_security_group" "sg_privada_bd" {
   name        = "sg_privada_bd"
   description = "Acesso SSH da mesma VPC e entre EC2 privadas"
-  vpc_id      = aws_vpc.vpc_cco.id
+  vpc_id      = aws_vpc.vpc_g3.id
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [aws_vpc.vpc_cco.cidr_block]
+    cidr_blocks = [aws_vpc.vpc_g3.cidr_block]
   }
 
   ingress {
@@ -125,20 +167,20 @@ resource "aws_security_group" "sg_privada_bd" {
 resource "aws_security_group" "sg_privada_back" {
   name        = "sg_privada_back"
   description = "Acesso SSH da mesma VPC e entre EC2 privadas"
-  vpc_id      = aws_vpc.vpc_cco.id
+  vpc_id      = aws_vpc.vpc_g3.id
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [aws_vpc.vpc_cco.cidr_block]
+    cidr_blocks = [aws_vpc.vpc_g3.cidr_block]
   }
 
   ingress {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = [aws_vpc.vpc_cco.cidr_block]
+    cidr_blocks = [aws_vpc.vpc_g3.cidr_block]
   }
 
   ingress {
@@ -180,6 +222,39 @@ resource "aws_instance" "ec2_publica_nginx" {
   }
 }
 
+# Instância EC2 pública (RabbitMQ)
+# resource "aws_instance" "ec2_rabbitmq" {
+#   ami                         = "ami-00ca32bbc84273381"
+#   instance_type               = "t2.micro" 
+#   key_name                    = "vockey"
+#   subnet_id                   = aws_subnet.subrede_publica.id
+#   vpc_security_group_ids      = [aws_security_group.rabbitmq_sg.id]
+#   private_ip                  = "10.0.0.10"
+#   associate_public_ip_address = true
+
+#   connection {
+#     type        = "ssh"
+#     user        = "ec2-user"
+#     private_key = file("./labuser.pem")
+#     host        = self.public_ip
+#   }
+
+#   provisioner "file" {
+#     source      = "../Docker/RabbitMQ/compose.yaml"
+#     destination = "/home/ec2-user/compose.yaml"
+#   }
+
+#   user_data = file("scripts/instalar_rabbitmq_amazon_linux.sh")
+
+#   tags = {
+#     Name = "ec2-rabbitmq"
+#   }
+# }
+
+# output "url_gerenciador_rabbitmq" {
+#   description = "URL do Management UI do RabbitMQ"
+#   value       = "http://${aws_instance.ec2_publica_rabbitmq.public_ip}:15672"
+# }
 
 # Instância EC2 privada (Banco de Dados)
 resource "aws_instance" "ec2_privada_bd" {
@@ -188,14 +263,13 @@ resource "aws_instance" "ec2_privada_bd" {
   key_name                    = "vockey"
   subnet_id                   = aws_subnet.subrede_privada.id
   vpc_security_group_ids      = [aws_security_group.sg_privada_bd.id]
-  private_ip = "10.0.0.200"
+  private_ip                  = "10.0.0.200"
   associate_public_ip_address = false
 
   user_data = join("\n\n", [
     "#!/bin/bash",
     file("scripts/setup.sh"),
     templatefile("scripts/run_bd.sh", {
-      arquivo_env            = base64encode(file("../Docker/Database/.env")),
       arquivo_docker_compose = base64encode(file("../Docker/Database/compose.yaml"))
     })
   ])
@@ -216,7 +290,7 @@ resource "aws_instance" "ec2_privada_be" {
   key_name                    = "vockey"
   subnet_id                   = aws_subnet.subrede_privada.id
   vpc_security_group_ids      = [aws_security_group.sg_privada_back.id]
-  private_ip = "10.0.0.201"
+  private_ip                  = "10.0.0.201"
   associate_public_ip_address = false
 
   user_data = join("\n\n", [
@@ -224,8 +298,6 @@ resource "aws_instance" "ec2_privada_be" {
     "sleep 15",
     file("scripts/setup.sh"),
     templatefile("scripts/run_back.sh", {
-      ip_ec2_bd              = aws_instance.ec2_privada_bd.private_ip,
-      arquivo_env            = base64encode(file("../Docker/Back-End/.env")),
       arquivo_docker_compose = base64encode(file("../Docker/Back-End/compose.yaml"))
     })
   ])
@@ -250,7 +322,7 @@ resource "aws_nat_gateway" "main" {
 }
 
 resource "aws_route_table" "route_table_privada" {
-  vpc_id = aws_vpc.vpc_cco.id
+  vpc_id = aws_vpc.vpc_g3.id
   route {
     cidr_block     = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.main.id
@@ -261,3 +333,5 @@ resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.subrede_privada.id
   route_table_id = aws_route_table.route_table_privada.id
 }
+
+# Buckets

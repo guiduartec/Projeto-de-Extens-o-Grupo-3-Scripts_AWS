@@ -17,7 +17,7 @@ provider "aws" {
 resource "aws_vpc" "vpc_g3" {
   cidr_block = "10.0.0.0/24"
   tags = {
-    Name = "vpc-2cco"
+    Name = "vpc-g3"
   }
 }
 
@@ -41,10 +41,10 @@ resource "aws_subnet" "subrede_privada" {
 }
 
 # Internet Gateway
-resource "aws_internet_gateway" "igw_cco" {
+resource "aws_internet_gateway" "igw_g3" {
   vpc_id = aws_vpc.vpc_g3.id
   tags = {
-    Name = "cco-igw"
+    Name = "g3-igw"
   }
 }
 
@@ -53,7 +53,7 @@ resource "aws_route_table" "route_table_publica" {
   vpc_id = aws_vpc.vpc_g3.id
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw_cco.id
+    gateway_id = aws_internet_gateway.igw_g3.id
   }
   tags = {
     Name = "subrede-publica-route-table"
@@ -223,38 +223,32 @@ resource "aws_instance" "ec2_publica_nginx" {
 }
 
 # Instância EC2 pública (RabbitMQ)
-# resource "aws_instance" "ec2_rabbitmq" {
-#   ami                         = "ami-00ca32bbc84273381"
-#   instance_type               = "t2.micro" 
-#   key_name                    = "vockey"
-#   subnet_id                   = aws_subnet.subrede_publica.id
-#   vpc_security_group_ids      = [aws_security_group.rabbitmq_sg.id]
-#   private_ip                  = "10.0.0.10"
-#   associate_public_ip_address = true
+resource "aws_instance" "ec2_rabbitmq" {
+  ami                         = "ami-00ca32bbc84273381"
+  instance_type               = "t2.micro" 
+  key_name                    = "vockey"
+  subnet_id                   = aws_subnet.subrede_publica.id
+  vpc_security_group_ids      = [aws_security_group.rabbitmq_sg.id]
+  private_ip                  = "10.0.0.10"
+  associate_public_ip_address = true
 
-#   connection {
-#     type        = "ssh"
-#     user        = "ec2-user"
-#     private_key = file("./labuser.pem")
-#     host        = self.public_ip
-#   }
+  user_data = join("\n\n", [
+    "#!/bin/bash",
+    file("scripts/setup.sh"),
+    templatefile("scripts/run_rabbitmq.sh", {
+      arquivo_docker_compose = base64encode(file("../Docker/RabbitMQ/compose.yaml"))
+    })
+  ])
 
-#   provisioner "file" {
-#     source      = "../Docker/RabbitMQ/compose.yaml"
-#     destination = "/home/ec2-user/compose.yaml"
-#   }
+  tags = {
+    Name = "ec2-rabbitmq"
+  }
+}
 
-#   user_data = file("scripts/instalar_rabbitmq_amazon_linux.sh")
-
-#   tags = {
-#     Name = "ec2-rabbitmq"
-#   }
-# }
-
-# output "url_gerenciador_rabbitmq" {
-#   description = "URL do Management UI do RabbitMQ"
-#   value       = "http://${aws_instance.ec2_publica_rabbitmq.public_ip}:15672"
-# }
+output "url_gerenciador_rabbitmq" {
+  description = "URL do Management UI do RabbitMQ"
+  value       = "http://${aws_instance.ec2_rabbitmq.public_ip}:15672"
+}
 
 # Instância EC2 privada (Banco de Dados)
 resource "aws_instance" "ec2_privada_bd" {
@@ -327,6 +321,10 @@ resource "aws_route_table" "route_table_privada" {
     cidr_block     = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.main.id
   }
+
+  tags = {
+    Name = "subrede-privada-route-table"
+  }
 }
 
 resource "aws_route_table_association" "private" {
@@ -334,4 +332,83 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.route_table_privada.id
 }
 
-# Buckets
+# Bucket
+# resource "aws_s3_bucket" "meu_bucket" {
+#   bucket = "bucket-teste-g3"
+# }
+
+# resource "aws_s3_bucket_public_access_block" "bloco_acesso_publico_s3" {
+#   bucket = aws_s3_bucket.meu_bucket.id
+
+#   block_public_acls       = false
+#   block_public_policy     = false
+#   ignore_public_acls      = false
+#   restrict_public_buckets = false
+# }
+
+# resource "aws_s3_bucket_policy" "politica_acesso_publico_bucket" {
+#   bucket = aws_s3_bucket.meu_bucket.id
+
+#   policy = jsonencode({
+#     Version = "2012-10-17",
+#     Statement = [
+#       {
+#         Effect    = "Allow",
+#         Principal = "*",
+#         Action    = "s3:GetObject",
+#         Resource  = "${aws_s3_bucket.meu_bucket.arn}/*"
+#       }
+#     ]
+#   })
+
+#   depends_on = [aws_s3_bucket_public_access_block.bloco_acesso_publico_s3]
+# }
+
+# -----------------------------------------------------
+# FUNÇÃO LAMBDA
+# -----------------------------------------------------
+
+# data "archive_file" "lambda_zip" {
+#   type        = "zip"
+#   source_file = "../lambda_python/lambda_grupo3.py"
+#   output_path = "lambda_grupo3.zip"
+# }
+
+# data "aws_iam_role" "lab_role" {
+#   name = "LabRole"
+# }
+
+# resource "aws_lambda_function" "minha_funcao_lambda" {
+#   function_name = "funcao-terraform-grupo3"
+#   handler       = "lambda_grupo3.lambda_handler"
+#   runtime       = "python3.9"
+#   role          = data.aws_iam_role.lab_role.arn
+#   filename      = data.archive_file.lambda_zip.output_path
+
+#   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+# } 
+
+# -----------------------------------------------------
+# Permissão para o S3 invocar a Lambda
+# -----------------------------------------------------
+# resource "aws_lambda_permission" "allow_s3_invoke" {
+#   statement_id  = "AllowExecutionFromS3"
+#   action        = "lambda:InvokeFunction"
+#   function_name = aws_lambda_function.minha_funcao_lambda.function_name
+#   principal     = "s3.amazonaws.com"
+#   source_arn    = "arn:aws:s3:::bucket-raw-teste-lambda"
+# }
+
+# -----------------------------------------------------
+# NOTIFICAÇÃO DO BUCKET (gatilho)
+# -----------------------------------------------------
+# resource "aws_s3_bucket_notification" "raw_notification" {
+#   bucket = "bucket-raw-teste-lambda"
+
+#   lambda_function {
+#     lambda_function_arn = aws_lambda_function.minha_funcao_lambda.arn
+#     events              = ["s3:ObjectCreated:*"] 
+#   }
+
+#   depends_on = [aws_lambda_permission.allow_s3_invoke]
+# }

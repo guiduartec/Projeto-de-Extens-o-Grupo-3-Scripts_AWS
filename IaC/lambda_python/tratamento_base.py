@@ -1,24 +1,96 @@
 import pandas as pd
 import numpy as np
-import os
+import boto3
+import io
+import json
+import csv
 from datetime import datetime
 
-def process_weather_data_optimized():
-    # Configuração de caminhos
-    base_path = os.path.dirname(os.path.dirname(__file__))
-    weather_path = os.path.join(base_path, 'main_terraform', 'weather_sum_2024', 'weather_sum_2024.csv')
-    output_path = os.path.join(base_path, 'main_terraform', 'weather_processed.csv')
-    
+# Configurações AWS
+regiao = 'us-east-1'
+nome_bucket_raw = 'bucket-raw-g3-venuste'
+nome_bucket_trusted = 'bucket-trusted-g3-venuste'
+arquivo_weather = 'weather_sum_2024.csv'
+
+# Inicialização dos clientes AWS
+s3_client = boto3.client('s3', region_name=regiao)
+s3_resource = boto3.resource('s3', region_name=regiao)
+
+def ler_arquivo_s3():
+
     try:
-        # Leitura otimizada do CSV
+        print(f"Tentando ler arquivo {arquivo_weather} do bucket {nome_bucket_raw}")
+        response = s3_client.get_object(Bucket=nome_bucket_raw, Key=arquivo_weather)
+        
         df = pd.read_csv(
-            weather_path,
-            na_values=['', 'NULL', 'null', 'NA', 'na', ' ', '#N/A'],  # Valores a serem tratados como NA
+            io.BytesIO(response['Body'].read()),
+            na_values=['', 'NULL', 'null', 'NA', 'na', ' ', '#N/A'],
             keep_default_na=True,
-            dtype_backend='numpy_nullable'  # Melhor suporte para valores nulos
+            dtype_backend='numpy_nullable'
+        )
+        print(f"Arquivo lido com sucesso. Shape: {df.shape}")
+        return df
+        
+    except s3_client.exceptions.NoSuchKey:
+        error_msg = f"Arquivo {arquivo_weather} não encontrado no bucket {nome_bucket_raw}"
+        print(error_msg)
+        raise FileNotFoundError(error_msg)
+    except Exception as e:
+        error_msg = f"Erro ao ler arquivo do S3: {str(e)}"
+        print(error_msg)
+        raise Exception(error_msg)
+
+def salvar_arquivo_s3(df):
+
+    try:
+        print(f"Preparando para salvar arquivo no bucket {nome_bucket_trusted}")
+        
+        if df.empty:
+            raise ValueError("DataFrame está vazio, nenhum dado para salvar")
+            
+        # Converter DataFrame para CSV em memória usando ponto-e-vírgula como separador
+        csv_buffer = io.StringIO()
+        df.to_csv(
+            csv_buffer, 
+            index=False, 
+            sep=';', 
+            decimal=',',
+            encoding='utf-8',
+            quoting=csv.QUOTE_MINIMAL  # Adiciona quotes apenas quando necessário
         )
         
-        # Primeiro, vamos limpar os dados nulos
+        # Upload para S3 com metadata para melhor identificação
+        conteudo = csv_buffer.getvalue().encode('utf-8')
+        s3_client.put_object(
+            Bucket=nome_bucket_trusted,
+            Key=arquivo_weather,
+            Body=conteudo,
+            ContentType='text/csv',
+            Metadata={
+                'rows': str(len(df)),
+                'columns': str(len(df.columns)),
+                'processed-date': datetime.now().isoformat()
+            }
+        )
+        print(f"Arquivo processado salvo com sucesso no bucket {nome_bucket_trusted}")
+        print(f"Total de registros salvos: {len(df)}")
+        
+    except Exception as e:
+        error_msg = f"Erro ao salvar arquivo no S3: {str(e)}"
+        print(error_msg)
+        raise Exception(error_msg)
+
+def process_weather_data_optimized():
+
+    try:
+        print("\n=== Iniciando Processamento dos Dados Meteorológicos ===")
+        
+        # Leitura do CSV do S3
+        print("\n1. Leitura do arquivo do S3...")
+        df = ler_arquivo_s3()
+        
+        print("\n2. Iniciando limpeza e transformação dos dados...")
+        # Limpar dados nulos
         df = df.fillna({
             'ESTACAO': '',
             'DATA (YYYY-MM-DD)': ''
@@ -51,9 +123,6 @@ def process_weather_data_optimized():
         }
         df = df.rename(columns=column_mapping)
         
-        # Como já temos dados diários, não precisamos agrupar
-        daily_records = df.copy()
-        
         # Selecionar colunas relevantes
         columns_to_keep = [
             'timestamp',
@@ -65,7 +134,7 @@ def process_weather_data_optimized():
             'estacao'
         ]
         
-        final_df = daily_records[columns_to_keep].copy()
+        final_df = df[columns_to_keep].copy()
         
         # Tratar valores numéricos
         numeric_columns = ['temperatura', 'precipitacao', 'radiacao', 'umidade', 'velocidade_vento']
@@ -92,8 +161,9 @@ def process_weather_data_optimized():
         # Converter timestamp para ISO
         final_df['timestamp'] = final_df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
         
-        # Salvar resultado em CSV
-        final_df.to_csv(output_path, index=False)
+        # Salvar no S3
+        print("Salvando arquivo processado no S3...")
+        salvar_arquivo_s3(final_df)
         
         # Imprimir estatísticas
         print(f"\nEstatísticas do processamento:")
@@ -103,21 +173,72 @@ def process_weather_data_optimized():
         print("\nEstatísticas das medições:")
         print(temp_df[numeric_columns].describe().round(2))
         
-        return output_path
-
+        return True
+    
     except Exception as e:
-        raise Exception(f"Erro ao processar dados: {str(e)}")
+        print(f"Erro durante o processamento: {e}")
+        return False
 
-if __name__ == "__main__":
+def lambda_handler(event, context):
+
+    print("\n=== Iniciando Execução Lambda de Processamento Meteorológico ===")
+    start_time = datetime.now()
+    
     try:
-        output_file = process_weather_data_optimized()
-        print("\nDados processados com sucesso!")
-        print(f"Arquivo de saída gerado em: {output_file}")
+        print(f"Timestamp início: {start_time.isoformat()}")
+        print(f"Função Lambda: {context.function_name if context else 'Local'}")
+        print(f"Request ID: {context.aws_request_id if context else 'Local'}")
         
-        # Mostrar preview dos dados
-        df = pd.read_csv(output_file)
-        print("\nPreview dos dados processados (primeiros registros):")
-        print(df.head(10).to_string())
+        success = process_weather_data_optimized()
         
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        if success:
+            message = {
+                'status': 'success',
+                'message': 'Processamento meteorológico concluído com sucesso!',
+                'duration_seconds': duration,
+                'timestamp': end_time.isoformat()
+            }
+            print(f"\nProcessamento concluído com sucesso em {duration:.2f} segundos")
+            return {
+                'statusCode': 200,
+                'body': json.dumps(message)
+            }
+        else:
+            message = {
+                'status': 'error',
+                'message': 'Falha no processamento dos dados meteorológicos',
+                'duration_seconds': duration,
+                'timestamp': end_time.isoformat()
+            }
+            print(f"\nProcessamento falhou após {duration:.2f} segundos")
+            return {
+                'statusCode': 500,
+                'body': json.dumps(message)
+            }
+            
     except Exception as e:
-        print(f"Erro ao processar dados: {str(e)}")
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        error_message = {
+            'status': 'error',
+            'message': f'Erro: {str(e)}',
+            'duration_seconds': duration,
+            'timestamp': end_time.isoformat()
+        }
+        print(f"\nErro na execução da Lambda após {duration:.2f} segundos: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps(error_message)
+        }
+
+# Permite testar o código localmente
+if __name__ == "__main__":
+    print("Iniciando processamento dos dados meteorológicos localmente...")
+    # Simula uma chamada Lambda local
+    response = lambda_handler({}, None)
+    print(f"\nResultado da execução:")
+    print(f"Status: {response['statusCode']}")
+    print(f"Mensagem: {json.loads(response['body'])}")

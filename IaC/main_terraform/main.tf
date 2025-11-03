@@ -410,13 +410,13 @@ variable "environment" {
 
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = "../lambda_python/lambda_grupo3.py"
-  output_path = "lambda_grupo3.zip"
+  source_file = "../lambda_python/tratamento_base.py"
+  output_path = "lambda_tratamento_base.zip"
 }
 
 resource "aws_lambda_function" "minha_funcao_lambda" {
   function_name = "funcao-terraform-grupo3"
-  handler       = "lambda_grupo3.lambda_handler"
+  handler       = "tratamento_base.lambda_handler"
   runtime       = "python3.9"
   role          = data.aws_iam_role.lab_role.arn
   filename      = data.archive_file.lambda_zip.output_path

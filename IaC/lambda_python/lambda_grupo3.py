@@ -8,8 +8,8 @@ import csv
 # Obs>>>>>>>>>> não esquecer de configurar as credenciais AWS no ambiente local
 
 regiao='us-east-1'
-nome_bucket_raw='bucket-raw-teste-lambda'
-nome_bucket_trusted='bucketz-trusted-teste-lambda'
+nome_bucket_raw='bucket-raw-g3-venuste'
+nome_bucket_trusted='bucket-trusted-g3-venuste'
 
 client = boto3.client('s3', region_name=regiao)
 s3 = boto3.resource('s3', region_name=regiao)

@@ -44,59 +44,59 @@ variable "environment" {
   default     = "dev"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block para a VPC"
-  type        = string
-  default     = "10.0.0.0/16"
-}
+# variable "vpc_cidr" {
+#   description = "CIDR block para a VPC"
+#   type        = string
+#   default     = "10.0.0.0/16"
+# }
 
-variable "availability_zones" {
-  description = "Lista de zonas de disponibilidade"
-  type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
-}
+# variable "availability_zones" {
+#   description = "Lista de zonas de disponibilidade"
+#   type        = list(string)
+#   default     = ["us-east-1a", "us-east-1b"]
+# }
 
-variable "public_subnets" {
-  description = "Lista de CIDRs para subnets públicas"
-  type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
-}
+# variable "public_subnets" {
+#   description = "Lista de CIDRs para subnets públicas"
+#   type        = list(string)
+#   default     = ["10.0.1.0/24", "10.0.2.0/24"]
+# }
 
-variable "private_subnets" {
-  description = "Lista de CIDRs para subnets privadas"
-  type        = list(string)
-  default     = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
-}
+# variable "private_subnets" {
+#   description = "Lista de CIDRs para subnets privadas"
+#   type        = list(string)
+#   default     = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
+# }
 
-variable "public_instance_count" {
-  description = "Número de instâncias EC2 públicas (uma por subnet pública)"
-  type        = number
-  default     = 2
-}
+# variable "public_instance_count" {
+#   description = "Número de instâncias EC2 públicas (uma por subnet pública)"
+#   type        = number
+#   default     = 2
+# }
 
-variable "private_instance_count" {
-  description = "Número de instâncias EC2 privadas"
-  type        = number
-  default     = 3
-}
+# variable "private_instance_count" {
+#   description = "Número de instâncias EC2 privadas"
+#   type        = number
+#   default     = 3
+# }
 
-variable "ami_id" {
-  description = "ID da AMI para as instâncias EC2"
-  type        = string
-  default     = "ami-0e86e20dae9224db8" # UBUNTU
-}
+# variable "ami_id" {
+#   description = "ID da AMI para as instâncias EC2"
+#   type        = string
+#   default     = "ami-0e86e20dae9224db8" # UBUNTU
+# }
 
-variable "instance_type" {
-  description = "Tipo de instância EC2"
-  type        = string
-  default     = "t2.micro"
-}
+# variable "instance_type" {
+#   description = "Tipo de instância EC2"
+#   type        = string
+#   default     = "t2.micro"
+# }
 
-variable "admin_ip" {
-  description = "IP permitido para acesso SSH"
-  type        = string
-  default     = "0.0.0.0/0" # Alterar para seu IP em produção
-}
+# variable "admin_ip" {
+#   description = "IP permitido para acesso SSH"
+#   type        = string
+#   default     = "0.0.0.0/0" # Alterar para seu IP em produção
+# }
 
 # variable "environment" {
 #   description = "Ambiente de implantação (dev, staging, prod)"
@@ -107,144 +107,144 @@ variable "admin_ip" {
 # -----------------------------------------------------
 # VPC E COMPONENTES DE REDE
 # -----------------------------------------------------
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+# resource "aws_vpc" "main" {
+#   cidr_block           = var.vpc_cidr
+#   enable_dns_hostnames = true
+#   enable_dns_support   = true
 
-  tags = {
-    Name = "${var.project_name}-vpc"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-vpc"
+#   }
+# }
 
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+# resource "aws_internet_gateway" "main" {
+#   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "${var.project_name}-igw"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-igw"
+#   }
+# }
 
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+# resource "aws_route_table" "public" {
+#   vpc_id = aws_vpc.main.id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
+#   route {
+#     cidr_block = "0.0.0.0/0"
+#     gateway_id = aws_internet_gateway.main.id
+#   }
 
-  tags = {
-    Name = "${var.project_name}-rt-public"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-rt-public"
+#   }
+# }
 
-resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
+# resource "aws_route_table" "private" {
+#   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "${var.project_name}-rt-private"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-rt-private"
+#   }
+# }
 
 # -----------------------------------------------------
 # SUBNETS
 # -----------------------------------------------------
-resource "aws_subnet" "public" {
-  count             = length(var.availability_zones)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.public_subnets[count.index]
-  availability_zone = var.availability_zones[count.index]
+# resource "aws_subnet" "public" {
+#   count             = length(var.availability_zones)
+#   vpc_id            = aws_vpc.main.id
+#   cidr_block        = var.public_subnets[count.index]
+#   availability_zone = var.availability_zones[count.index]
 
-  map_public_ip_on_launch = true
+#   map_public_ip_on_launch = true
 
-  tags = {
-    Name = "${var.project_name}-public-subnet-${count.index + 1}"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-public-subnet-${count.index + 1}"
+#   }
+# }
 
-resource "aws_subnet" "private" {
-  count             = length(var.availability_zones)
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnets[count.index]
-  availability_zone = var.availability_zones[count.index]
+# resource "aws_subnet" "private" {
+#   count             = length(var.availability_zones)
+#   vpc_id            = aws_vpc.main.id
+#   cidr_block        = var.private_subnets[count.index]
+#   availability_zone = var.availability_zones[count.index]
 
-  tags = {
-    Name = "${var.project_name}-private-subnet-${count.index + 1}"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-private-subnet-${count.index + 1}"
+#   }
+# }
 
-resource "aws_route_table_association" "public" {
-  count          = length(var.availability_zones)
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
-}
+# resource "aws_route_table_association" "public" {
+#   count          = length(var.availability_zones)
+#   subnet_id      = aws_subnet.public[count.index].id
+#   route_table_id = aws_route_table.public.id
+# }
 
-resource "aws_route_table_association" "private" {
-  count          = length(var.availability_zones)
-  subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private.id
-}
+# resource "aws_route_table_association" "private" {
+#   count          = length(var.availability_zones)
+#   subnet_id      = aws_subnet.private[count.index].id
+#   route_table_id = aws_route_table.private.id
+# }
 
 # -----------------------------------------------------
 # SECURITY GROUPS
 # -----------------------------------------------------
-resource "aws_security_group" "alb" {
-  name        = "${var.project_name}-alb-sg"
-  description = "Security group for Application Load Balancer"
-  vpc_id      = aws_vpc.main.id
+# resource "aws_security_group" "alb" {
+#   name        = "${var.project_name}-alb-sg"
+#   description = "Security group for Application Load Balancer"
+#   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description = "HTTP from anywhere"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+#   ingress {
+#     description = "HTTP from anywhere"
+#     from_port   = 80
+#     to_port     = 80
+#     protocol    = "tcp"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+#   egress {
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
 
-  tags = {
-    Name = "${var.project_name}-alb-sg"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-alb-sg"
+#   }
+# }
 
-resource "aws_security_group" "ec2" {
-  name        = "${var.project_name}-ec2-sg"
-  description = "Security group for EC2 instances"
-  vpc_id      = aws_vpc.main.id
+# resource "aws_security_group" "ec2" {
+#   name        = "${var.project_name}-ec2-sg"
+#   description = "Security group for EC2 instances"
+#   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "HTTP from ALB"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
+#   ingress {
+#     description     = "HTTP from ALB"
+#     from_port       = 80
+#     to_port         = 80
+#     protocol        = "tcp"
+#     security_groups = [aws_security_group.alb.id]
+#   }
 
-  ingress {
-    description = "SSH access"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.admin_ip]
-  }
+#   ingress {
+#     description = "SSH access"
+#     from_port   = 22
+#     to_port     = 22
+#     protocol    = "tcp"
+#     cidr_blocks = [var.admin_ip]
+#   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+#   egress {
+#     from_port   = 0
+#     to_port     = 0
+#     protocol    = "-1"
+#     cidr_blocks = ["0.0.0.0/0"]
+#   }
 
-  tags = {
-    Name = "${var.project_name}-ec2-sg"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-ec2-sg"
+#   }
+# }
 
 # -----------------------------------------------------
 # EC2 INSTANCIAS
@@ -253,72 +253,72 @@ resource "aws_security_group" "ec2" {
 # -----------------------------------------------------
 # PRIVADA
 # -----------------------------------------------------
-resource "aws_instance" "app_servers" {
-  count = var.private_instance_count
+# resource "aws_instance" "app_servers" {
+#   count = var.private_instance_count
 
-  ami           = var.ami_id
-  instance_type = var.instance_type
+#   ami           = var.ami_id
+#   instance_type = var.instance_type
 
-  subnet_id              = aws_subnet.private[count.index % length(aws_subnet.private)].id
-  vpc_security_group_ids = [aws_security_group.ec2.id]
+#   subnet_id              = aws_subnet.private[count.index % length(aws_subnet.private)].id
+#   vpc_security_group_ids = [aws_security_group.ec2.id]
 
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              yum install -y httpd
-              systemctl start httpd
-              systemctl enable httpd
-              echo "<h1>Hello from EC2 instance $(hostname -f)</h1>" > /var/www/html/index.html
-              EOF
+#   user_data = <<-EOF
+#               #!/bin/bash
+#               yum update -y
+#               yum install -y httpd
+#               systemctl start httpd
+#               systemctl enable httpd
+#               echo "<h1>Hello from EC2 instance $(hostname -f)</h1>" > /var/www/html/index.html
+#               EOF
 
-  root_block_device {
-    volume_size = 30
-    volume_type = "gp3"
-  }
+#   root_block_device {
+#     volume_size = 30
+#     volume_type = "gp3"
+#   }
 
-  tags = {
-    Name = "${var.project_name}-app-server-${count.index + 1}"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-app-server-${count.index + 1}"
+#   }
+# }
 
 # -----------------------------------------------------
 # PÚBLICA
 # -----------------------------------------------------
-resource "aws_instance" "public_instance_oogabooga" {
-  count = var.public_instance_count
+# resource "aws_instance" "public_instance_oogabooga" {
+#   count = var.public_instance_count
 
-  ami           = var.ami_id
-  instance_type = var.instance_type
+#   ami           = var.ami_id
+#   instance_type = var.instance_type
 
-  subnet_id              = aws_subnet.public[count.index % length(aws_subnet.public)].id
-  vpc_security_group_ids = [aws_security_group.ec2.id]
-  key_name               = "labuser"
+#   subnet_id              = aws_subnet.public[count.index % length(aws_subnet.public)].id
+#   vpc_security_group_ids = [aws_security_group.ec2.id]
+#   key_name               = "labuser"
 
-  associate_public_ip_address = true
+#   associate_public_ip_address = true
 
-  connection {
-    user        = "ubuntu"
-    type        = "ssh"
-    private_key = file("./labuser.pem")
-    host        = self.public_ip
-  }
+#   connection {
+#     user        = "ubuntu"
+#     type        = "ssh"
+#     private_key = file("./labuser.pem")
+#     host        = self.public_ip
+#   }
 
-  provisioner "file" {
-    source      = "scripts_front/compose.yaml" # arquivo docker-compose para o RabbitMQ
-    destination = "/home/ubuntu/compose.yaml"
-  }
+#   provisioner "file" {
+#     source      = "scripts_front/compose.yaml" # arquivo docker-compose para o RabbitMQ
+#     destination = "/home/ubuntu/compose.yaml"
+#   }
 
-  user_data = file("scripts_front/instalar_docker_ubuntu.sh")
+#   user_data = file("scripts_front/instalar_docker_ubuntu.sh")
 
-  root_block_device {
-    volume_size = 30
-    volume_type = "gp3"
-  }
+#   root_block_device {
+#     volume_size = 30
+#     volume_type = "gp3"
+#   }
 
-  tags = {
-    Name = "${var.project_name}-public-server-${count.index + 1}"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-public-server-${count.index + 1}"
+#   }
+# }
 
 # # -----------------------------------------------------
 # # LOAD BALANCER
@@ -408,53 +408,66 @@ resource "aws_instance" "public_instance_oogabooga" {
 # FUNÇÃO LAMBDA
 # -----------------------------------------------------
 
-# data "archive_file" "lambda_zip" {
-#   type        = "zip"
-#   source_file = "../lambda_python/lambda_grupo3.py"
-#   output_path = "lambda_grupo3.zip"
-# }
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_file = "../lambda_python/lambda_grupo3.py"
+  output_path = "lambda_grupo3.zip"
+}
 
-# data "aws_iam_role" "lab_role" {
-#   name = "LabRole"
-# }
+resource "aws_lambda_function" "minha_funcao_lambda" {
+  function_name = "funcao-terraform-grupo3"
+  handler       = "lambda_grupo3.lambda_handler"
+  runtime       = "python3.9"
+  role          = data.aws_iam_role.lab_role.arn
+  filename      = data.archive_file.lambda_zip.output_path
 
-# resource "aws_lambda_function" "minha_funcao_lambda" {
-#   function_name = "funcao-terraform-grupo3"
-#   handler       = "lambda_grupo3.lambda_handler"
-#   runtime       = "python3.9"
-#   role          = data.aws_iam_role.lab_role.arn
-#   filename      = data.archive_file.lambda_zip.output_path
-
-#   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-# } 
+  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+} 
 
 # -----------------------------------------------------
 # Permissão para o S3 invocar a Lambda
 # -----------------------------------------------------
-# resource "aws_lambda_permission" "allow_s3_invoke" {
-#   statement_id  = "AllowExecutionFromS3"
-#   action        = "lambda:InvokeFunction"
-#   function_name = aws_lambda_function.minha_funcao_lambda.function_name
-#   principal     = "s3.amazonaws.com"
-#   source_arn    = "arn:aws:s3:::bucket-raw-teste-lambda"
-# }
+resource "aws_lambda_permission" "allow_s3_invoke" {
+  statement_id  = "AllowExecutionFromS3"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.minha_funcao_lambda.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = "arn:aws:s3:::bucket-raw-g3-venuste"
+}
 
 # -----------------------------------------------------
 # NOTIFICAÇÃO DO BUCKET (gatilho)
 # -----------------------------------------------------
-# resource "aws_s3_bucket_notification" "raw_notification" {
-#   bucket = "bucket-raw-teste-lambda"
+resource "aws_s3_bucket_notification" "raw_notification" {
+  bucket = "bucket-raw-g3-venuste"
 
-#   lambda_function {
-#     lambda_function_arn = aws_lambda_function.minha_funcao_lambda.arn
-#     events              = ["s3:ObjectCreated:*"] 
-#   }
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.minha_funcao_lambda.arn
+    events              = ["s3:ObjectCreated:*"] 
+  }
 
-#   depends_on = [aws_lambda_permission.allow_s3_invoke]
-# }
+  depends_on = [aws_lambda_permission.allow_s3_invoke, aws_s3_bucket.buckets_data_lake]
+}
 
+# -----------------------------------------------------
+# CRIAÇÃO DO DATA LAKE COM 3 BUCKETS S3 (raw, trusted, client)
+# -----------------------------------------------------
+variable "s3_bucket_names" {
+  type    = set(string)
+  default = ["bucket-raw-g3-venuste","bucket-trusted-g3-venuste","bucket-client-g3-venuste"]
+}
+
+resource "aws_s3_bucket" "buckets_data_lake" {
+  for_each = var.s3_bucket_names # Gera 3 buckets com os nomes definidos na variável
+  bucket = each.key
+  force_destroy = true
+}
+
+# -----------------------------------------------------
+# ATHENA
+# -----------------------------------------------------
 resource "aws_s3_bucket" "athena_results" {
-   bucket = "venuste-bucket-athena-results-2025"
+   bucket = "venuste-bucket-athena-results-2025-g3"
   force_destroy = true
 
    tags = {
@@ -470,7 +483,7 @@ resource "aws_athena_workgroup" "venuste_analytics" {
     publish_cloudwatch_metrics_enabled = true
 
     result_configuration {
-      output_location = "s3://venuste-bucket-athena-results-2025/output/"
+      output_location = "s3://venuste-bucket-athena-results-2025-g3/output/"
     }
   }
 }

@@ -98,6 +98,12 @@ variable "admin_ip" {
   default     = "0.0.0.0/0" # Alterar para seu IP em produção
 }
 
+# variable "environment" {
+#   description = "Ambiente de implantação (dev, staging, prod)"
+#   type        = string
+#   default     = "dev"
+# }
+
 # -----------------------------------------------------
 # VPC E COMPONENTES DE REDE
 # -----------------------------------------------------
@@ -286,14 +292,14 @@ resource "aws_instance" "public_instance_oogabooga" {
 
   subnet_id              = aws_subnet.public[count.index % length(aws_subnet.public)].id
   vpc_security_group_ids = [aws_security_group.ec2.id]
-  key_name               = "vockey"
+  key_name               = "labuser"
 
   associate_public_ip_address = true
 
   connection {
     user        = "ubuntu"
     type        = "ssh"
-    private_key = file("./labsuser.pem")
+    private_key = file("./labuser.pem")
     host        = self.public_ip
   }
 
@@ -308,8 +314,6 @@ resource "aws_instance" "public_instance_oogabooga" {
     volume_size = 30
     volume_type = "gp3"
   }
-
-
 
   tags = {
     Name = "${var.project_name}-public-server-${count.index + 1}"
@@ -448,3 +452,25 @@ resource "aws_instance" "public_instance_oogabooga" {
 
 #   depends_on = [aws_lambda_permission.allow_s3_invoke]
 # }
+
+resource "aws_s3_bucket" "athena_results" {
+   bucket = "venuste-bucket-athena-results-2025"
+  force_destroy = true
+
+   tags = {
+     Name = "venuste-bucket-athena-results-2025"
+   }
+ }
+
+resource "aws_athena_workgroup" "venuste_analytics" {
+  name = "venuste_analytics_workgroup"
+
+  configuration {
+    enforce_workgroup_configuration    = true
+    publish_cloudwatch_metrics_enabled = true
+
+    result_configuration {
+      output_location = "s3://venuste-bucket-athena-results-2025/output/"
+    }
+  }
+}

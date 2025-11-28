@@ -1,21 +1,21 @@
-resource "aws_glue_catalog_database" "weather_analytics" {
-  name        = "weather_analytics"
+resource "aws_glue_catalog_database" "venuste_db" {
+  name        = "venuste_db"
   description = "Database for weather temperature analysis"
 }
 
-resource "aws_glue_catalog_table" "weather_data" {
-  name          = "weather_data"
-  database_name = aws_glue_catalog_database.weather_analytics.name
+resource "aws_glue_catalog_table" "weather_data_from_stations" {
+  name          = "weather_data_from_stations"
+  database_name = aws_glue_catalog_database.venuste_db.name
   table_type    = "EXTERNAL_TABLE"
   description   = "Weather temperature data from stations"
 
   storage_descriptor {
-    location      = "s3://bucket-venuste-client/weather/"
+    location      = "s3://bucket-client-g3-venuste-v2/weather/"
     input_format  = "org.apache.hadoop.mapred.TextInputFormat"
     output_format = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
 
     ser_de_info {
-      name                  = "weather_data"
+      name                  = "weather_data_from_stations"
       serialization_library = "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
       parameters = {
         "field.delim"            = ";"

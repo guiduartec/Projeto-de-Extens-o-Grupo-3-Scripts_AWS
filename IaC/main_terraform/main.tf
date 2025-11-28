@@ -405,7 +405,7 @@ variable "environment" {
 # }
 
 # -----------------------------------------------------
-# FUNÇÃO LAMBDA
+# FUNÇÃO LAMBDA TRUSTED
 # -----------------------------------------------------
 
 data "archive_file" "lambda_zip" {
@@ -422,7 +422,7 @@ resource "aws_lambda_function" "minha_funcao_lambda" {
   filename      = data.archive_file.lambda_zip.output_path
 
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-} 
+}
 
 # -----------------------------------------------------
 # Permissão para o S3 invocar a Lambda
@@ -432,14 +432,14 @@ resource "aws_lambda_permission" "allow_s3_invoke" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.minha_funcao_lambda.function_name
   principal     = "s3.amazonaws.com"
-  source_arn    = "arn:aws:s3:::bucket-raw-g3-venuste"
+  source_arn    = "arn:aws:s3:::bucket-raw-g3-venuste-v2"
 }
 
 # -----------------------------------------------------
 # NOTIFICAÇÃO DO BUCKET (gatilho)
 # -----------------------------------------------------
 resource "aws_s3_bucket_notification" "raw_notification" {
-  bucket = "bucket-raw-g3-venuste"
+  bucket = "bucket-raw-g3-venuste-v2"
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.minha_funcao_lambda.arn
@@ -450,11 +450,55 @@ resource "aws_s3_bucket_notification" "raw_notification" {
 }
 
 # -----------------------------------------------------
+# FUNÇÃO LAMBDA CLIENT - CÁLCULO DE MÉDIAS MENSAIS
+# -----------------------------------------------------
+data "archive_file" "lambda_monthly_avg_zip" {
+  type        = "zip"
+  source_file = "../lambda_python/tratamento_para_client.py"
+  output_path = "lambda_tratamento_para_client.zip"
+}
+
+resource "aws_lambda_function" "monthly_averages_lambda" {
+  function_name = "funcao-monthly-averages-grupo3"
+  handler       = "monthly_averages.lambda_handler"
+  runtime       = "python3.9"
+  role          = data.aws_iam_role.lab_role.arn
+  filename      = data.archive_file.lambda_monthly_avg_zip.output_path
+  source_code_hash = data.archive_file.lambda_monthly_avg_zip.output_base64sha256
+}
+
+# -----------------------------------------------------
+# Permissão para o S3 invocar a Lambda
+# -----------------------------------------------------
+resource "aws_lambda_permission" "allow_s3_invoke_monthly_avg" {
+  statement_id  = "AllowExecutionFromS3Trusted"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.monthly_averages_lambda.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = "arn:aws:s3:::bucket-trusted-g3-venuste-v2"
+}
+
+# -----------------------------------------------------
+# NOTIFICAÇÃO DO BUCKET (gatilho)
+# -----------------------------------------------------
+resource "aws_s3_bucket_notification" "trusted_notification" {
+  bucket = "bucket-trusted-g3-venuste-v2"
+  
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.monthly_averages_lambda.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_suffix       = ".csv"  # Opcional: apenas arquivos CSV
+  }
+  
+  depends_on = [aws_lambda_permission.allow_s3_invoke_monthly_avg]
+}
+
+# -----------------------------------------------------
 # CRIAÇÃO DO DATA LAKE COM 3 BUCKETS S3 (raw, trusted, client)
 # -----------------------------------------------------
 variable "s3_bucket_names" {
   type    = set(string)
-  default = ["bucket-raw-g3-venuste","bucket-trusted-g3-venuste","bucket-client-g3-venuste"]
+  default = ["bucket-raw-g3-venuste-v2","bucket-trusted-g3-venuste-v2","bucket-client-g3-venuste-v2"]
 }
 
 resource "aws_s3_bucket" "buckets_data_lake" {
@@ -467,11 +511,11 @@ resource "aws_s3_bucket" "buckets_data_lake" {
 # ATHENA
 # -----------------------------------------------------
 resource "aws_s3_bucket" "athena_results" {
-   bucket = "venuste-bucket-athena-results-2025-g3"
+   bucket = "venuste-bucket-athena-results-2025-g3-v2"
   force_destroy = true
 
    tags = {
-     Name = "venuste-bucket-athena-results-2025"
+     Name = "venuste-bucket-athena-results-2025-v2"
    }
  }
 
@@ -483,7 +527,7 @@ resource "aws_athena_workgroup" "venuste_analytics" {
     publish_cloudwatch_metrics_enabled = true
 
     result_configuration {
-      output_location = "s3://venuste-bucket-athena-results-2025-g3/output/"
+      output_location = "s3://venuste-bucket-athena-results-2025-g3-v2/output/"
     }
   }
 }

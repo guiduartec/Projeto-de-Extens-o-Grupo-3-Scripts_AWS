@@ -7,10 +7,10 @@ from datetime import datetime
 
 # Configurações AWS
 regiao = 'us-east-1'
-nome_bucket_trusted = 'bucket-trusted-g3-venuste'
-nome_bucket_client = 'bucket-client-g3-venuste'
+nome_bucket_trusted = 'bucket-trusted-g3-venuste-v2'
+nome_bucket_client = 'bucket-client-g3-venuste-v2'
 arquivo_entrada = 'weather_sum_2024.csv'
-arquivo_saida = 'monthly_averages.csv'
+arquivo_saida = 'csv_client.csv'
 
 # Inicialização dos clientes AWS
 s3_client = boto3.client('s3', region_name=regiao)

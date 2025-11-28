@@ -8,8 +8,8 @@ from datetime import datetime
 
 # Configurações AWS
 regiao = 'us-east-1'
-nome_bucket_raw = 'bucket-raw-g3-venuste'
-nome_bucket_trusted = 'bucket-trusted-g3-venuste'
+nome_bucket_raw = 'bucket-raw-g3-venuste-v2'
+nome_bucket_trusted = 'bucket-trusted-g3-venuste-v2'
 arquivo_weather = 'weather_sum_2024.csv'
 
 # Inicialização dos clientes AWS

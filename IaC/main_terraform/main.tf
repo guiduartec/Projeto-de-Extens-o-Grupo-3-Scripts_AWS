@@ -512,7 +512,7 @@ resource "aws_s3_bucket" "buckets_data_lake" {
 # -----------------------------------------------------
 resource "aws_s3_bucket" "athena_results" {
    bucket = "venuste-bucket-athena-results-2025-g3-v2"
-  force_destroy = true
+   force_destroy = true
 
    tags = {
      Name = "venuste-bucket-athena-results-2025-v2"
@@ -521,6 +521,8 @@ resource "aws_s3_bucket" "athena_results" {
 
 resource "aws_athena_workgroup" "venuste_analytics" {
   name = "venuste_analytics_workgroup"
+
+   force_destroy = true
 
   configuration {
     enforce_workgroup_configuration    = true

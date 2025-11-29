@@ -1,4 +1,33 @@
 services:
+  redis:
+    image: redis:7.2
+    container_name: redis_cache
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--bind", "0.0.0.0", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redis_insight
+    ports:
+      - "8001:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app_network
+
   backend:
     image: brunoyujitaka/proj_ext_backend:latest
     environment:
@@ -8,9 +37,29 @@ services:
       DB_HOST: "10.0.0.200"
       DB_PORT: "3307"
       RABBIT_HOST: "10.0.0.10"
+      BREVO: ""
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      SPRING_REDIS_HOST: "redis"
+      SPRING_REDIS_PORT: "6379"
     ports:
       - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - app_network
+
   consumer:
     image: brunoyujitaka/proj_ext_consumer:latest
     restart: unless-stopped
+    networks:
+      - app_network
+
+volumes:
+  redis_data:
+
+networks:
+  app_network:
+    driver: bridge

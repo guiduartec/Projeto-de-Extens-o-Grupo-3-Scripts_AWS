@@ -190,6 +190,30 @@ resource "aws_security_group" "sg_privada_back" {
     cidr_blocks = [aws_subnet.subrede_privada.cidr_block]
   }
 
+  ingress {
+    description = "Redis"
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Redis insight"
+    from_port   = 8001
+    to_port     = 8001
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Redis insight bind port"
+    from_port   = 5540
+    to_port     = 5540
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -205,6 +229,7 @@ resource "aws_instance" "ec2_publica_nginx" {
   key_name                    = "vockey"
   subnet_id                   = aws_subnet.subrede_publica.id
   vpc_security_group_ids      = [aws_security_group.sg_publica.id]
+  private_ip                  = "10.0.0.11"
   associate_public_ip_address = true
 
   user_data = join("\n\n", [

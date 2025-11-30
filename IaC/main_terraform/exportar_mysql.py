@@ -31,12 +31,46 @@ print("Tabelas encontradas:", tabelas)
 
 s3 = boto3.client("s3")
 
+# ---------------------------------------------------------
+# ENVIAR 2 CSVs LOCAL PARA S3 (Clima Tempo e Comentários)
+# ---------------------------------------------------------
+
+csv_local = "main_terraform/csv_client.csv" 
+
+nome_pasta_local = "weather/"
+
+# Cria a pasta no S3
+s3.put_object(
+    Bucket=BUCKET,
+    Key=nome_pasta_local
+)
+
+nome_no_s3 = nome_pasta_local + os.path.basename(csv_local)
+print(f"Enviando arquivo local {csv_local} para {nome_no_s3}...")
+
+s3.upload_file(csv_local, BUCKET, nome_no_s3)
+
+csv_local2 = "main_terraform/comentarios_clima_temperatura.csv"  # coloque aqui o caminho do seu segundo CSV
+
+nome_pasta_local2 = "comentarios/"
+
+# Cria a pasta no S3
+s3.put_object(
+    Bucket=BUCKET,
+    Key=nome_pasta_local2
+)
+
+nome_no_s3_2 = nome_pasta_local2 + os.path.basename(csv_local2)
+print(f"Enviando arquivo local {csv_local2} para {nome_no_s3_2}...")
+
+s3.upload_file(csv_local2, BUCKET, nome_no_s3_2)
+
 # ----------------------------
-# EXPORTAR E ENVIAR PARA S3
+# EXPORTAR DO MYSQL E ENVIAR PARA S3
 # ----------------------------
 for tabela in tabelas:
     print(f"Exportando {tabela}...")
-    prefix = f"{tabela}/"  # exemplo: alerta/, parceiro/, saida_estoque/
+    prefix = f"{tabela}/"  
     
     s3.put_object(
         Bucket=BUCKET,

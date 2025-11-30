@@ -30,6 +30,11 @@ resource "aws_glue_catalog_table" "weather_data_from_stations" {
     }
 
     columns {
+      name = "data"
+      type = "string"
+    }
+
+    columns {
       name = "mes"
       type = "int"
     }
@@ -51,6 +56,62 @@ resource "aws_glue_catalog_table" "weather_data_from_stations" {
     "typeOfData"         = "file"
     "compressionType"    = "none"
     "skip.header.line.count" = "1"
+  }
+}
+
+resource "aws_glue_catalog_table" "comentarios_clientes" {
+  name          = "comentarios_clientes"
+  database_name = aws_glue_catalog_database.venuste_db.name
+  table_type    = "EXTERNAL_TABLE"
+  description   = "Tabela de comentários de clientes sobre roupas"
+
+  storage_descriptor {
+    location      = "s3://bucket-client-g3-venuste-v2/comentarios/"
+    input_format  = "org.apache.hadoop.mapred.TextInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat"
+
+    ser_de_info {
+      name                  = "comentarios_clientes"
+      serialization_library = "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
+      parameters = {
+        "field.delim"            = ";"
+        "serialization.format"   = ","
+        "line.delim"             = "\n"
+      }
+    }
+
+    columns {
+      name = "comment_username"
+      type = "string"
+    }
+
+    columns {
+      name = "comment_text"
+      type = "string"
+    }
+
+    columns {
+      name = "comment_created_at"
+      type = "string" 
+    }
+
+    columns {
+      name = "comment_id"
+      type = "int"
+    }
+
+    columns {
+      name = "comment_user_id"
+      type = "int"
+    }
+  }
+
+  parameters = {
+    EXTERNAL                  = "TRUE"
+    "classification"          = "csv"
+    "typeOfData"              = "file"
+    "compressionType"         = "none"
+    "skip.header.line.count"  = "1"
   }
 }
 

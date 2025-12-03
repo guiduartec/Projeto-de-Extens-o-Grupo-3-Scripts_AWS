@@ -303,6 +303,15 @@ resource "aws_instance" "ec2_privada_bd" {
 }
 
 # Instância EC2 privada (Back-End)
+data "aws_iam_role" "lab_role" {
+  name = "LabRole"
+}
+
+resource "aws_iam_instance_profile" "ec2_back_profile" {
+  name = "LabRole"
+  role = data.aws_iam_role.lab_role.name
+}
+
 resource "aws_instance" "ec2_privada_be" {
   ami                         = "ami-00ca32bbc84273381"
   instance_type               = "t2.micro"
@@ -311,6 +320,7 @@ resource "aws_instance" "ec2_privada_be" {
   vpc_security_group_ids      = [aws_security_group.sg_privada_back.id]
   private_ip                  = "10.0.0.201"
   associate_public_ip_address = false
+  iam_instance_profile        = aws_iam_instance_profile.ec2_back_profile.name
 
   user_data = join("\n\n", [
     "#!/bin/bash",
@@ -358,82 +368,49 @@ resource "aws_route_table_association" "private" {
 }
 
 # Bucket
-# resource "aws_s3_bucket" "meu_bucket" {
-#   bucket = "bucket-teste-g3"
-# }
+variable "bucket_name" {
+  description = "Nome único do bucket S3"
+  type        = string
+  default     = "bucket-teste-g3" # Mudar para o nome do seu bucket
+}
 
-# resource "aws_s3_bucket_public_access_block" "bloco_acesso_publico_s3" {
-#   bucket = aws_s3_bucket.meu_bucket.id
+resource "aws_s3_bucket" "bucket_g3" {
+  bucket = var.bucket_name 
+  force_destroy = true
+}
 
-#   block_public_acls       = false
-#   block_public_policy     = false
-#   ignore_public_acls      = false
-#   restrict_public_buckets = false
-# }
+resource "aws_s3_object" "directory_files" {
+  for_each = fileset("./Imagens_S3", "**")
+  bucket   = aws_s3_bucket.bucket_g3.id
+  key      = "${each.value}"
+  source   = "./Imagens_S3/${each.value}"
+}
 
-# resource "aws_s3_bucket_policy" "politica_acesso_publico_bucket" {
-#   bucket = aws_s3_bucket.meu_bucket.id
+resource "aws_s3_bucket_public_access_block" "bloco_acesso_publico_s3" {
+  bucket = aws_s3_bucket.bucket_g3.bucket
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
 
-#   policy = jsonencode({
-#     Version = "2012-10-17",
-#     Statement = [
-#       {
-#         Effect    = "Allow",
-#         Principal = "*",
-#         Action    = "s3:GetObject",
-#         Resource  = "${aws_s3_bucket.meu_bucket.arn}/*"
-#       }
-#     ]
-#   })
+resource "aws_s3_bucket_policy" "politica_acesso_publico_bucket" {
+  bucket = aws_s3_bucket.bucket_g3.id
 
-#   depends_on = [aws_s3_bucket_public_access_block.bloco_acesso_publico_s3]
-# }
+  policy = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": "arn:aws:s3:::${var.bucket_name}/*"
+        }
+    ]
+})
 
-# -----------------------------------------------------
-# FUNÇÃO LAMBDA
-# -----------------------------------------------------
-
-# data "archive_file" "lambda_zip" {
-#   type        = "zip"
-#   source_file = "../lambda_python/lambda_grupo3.py"
-#   output_path = "lambda_grupo3.zip"
-# }
-
-# data "aws_iam_role" "lab_role" {
-#   name = "LabRole"
-# }
-
-# resource "aws_lambda_function" "minha_funcao_lambda" {
-#   function_name = "funcao-terraform-grupo3"
-#   handler       = "lambda_grupo3.lambda_handler"
-#   runtime       = "python3.9"
-#   role          = data.aws_iam_role.lab_role.arn
-#   filename      = data.archive_file.lambda_zip.output_path
-
-#   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
-# } 
-
-# -----------------------------------------------------
-# Permissão para o S3 invocar a Lambda
-# -----------------------------------------------------
-# resource "aws_lambda_permission" "allow_s3_invoke" {
-#   statement_id  = "AllowExecutionFromS3"
-#   action        = "lambda:InvokeFunction"
-#   function_name = aws_lambda_function.minha_funcao_lambda.function_name
-#   principal     = "s3.amazonaws.com"
-#   source_arn    = "arn:aws:s3:::bucket-raw-teste-lambda"
-# }
-
-# -----------------------------------------------------
-# NOTIFICAÇÃO DO BUCKET (gatilho)
-# -----------------------------------------------------
-# resource "aws_s3_bucket_notification" "raw_notification" {
-#   bucket = "bucket-raw-teste-lambda"
-
-#   lambda_function {
-#     lambda_function_arn = aws_lambda_function.minha_funcao_lambda.arn
-#     events              = ["s3:ObjectCreated:*"] 
-#   }
-
-#   depends_on = [aws_lambda_permission.allow_s3_invoke]
-# }
+  depends_on = [aws_s3_bucket_public_access_block.bloco_acesso_publico_s3]
+}

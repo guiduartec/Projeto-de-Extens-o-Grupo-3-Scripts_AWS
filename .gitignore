@@ -28,3 +28,4 @@ Docker/Database/.env
 
 # private key
 IaC/main_terraform/labsuser.pem
+vockey.pem

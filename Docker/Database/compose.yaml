@@ -1,6 +1,7 @@
 services:
   db:
     image: brunoyujitaka/proj_ext_database:latest
+    container_name: db
     environment:
       MYSQL_ROOT_PASSWORD: "venuste"
     ports:

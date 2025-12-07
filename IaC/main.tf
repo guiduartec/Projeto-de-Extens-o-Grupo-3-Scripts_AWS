@@ -13,6 +13,16 @@ provider "aws" {
   region = "us-east-1"
 }
 
+# IAM
+data "aws_iam_role" "lab_role" {
+  name = "LabRole"
+}
+
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "LabRole"
+  role = data.aws_iam_role.lab_role.name
+}
+
 # CIDR 10.0.0.0/24
 resource "aws_vpc" "vpc_g3" {
   cidr_block = "10.0.0.0/24"
@@ -284,16 +294,38 @@ resource "aws_instance" "ec2_privada_bd" {
   vpc_security_group_ids      = [aws_security_group.sg_privada_bd.id]
   private_ip                  = "10.0.0.200"
   associate_public_ip_address = false
+  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
 
   user_data = join("\n\n", [
     "#!/bin/bash",
     file("scripts/setup.sh"),
+    file("scripts/cron-job-diario.sh"),
     templatefile("scripts/run_bd.sh", {
       arquivo_docker_compose = base64encode(file("../Docker/Database/compose.yaml"))
     })
   ])
 
   user_data_replace_on_change = true
+
+  connection {
+    type                = "ssh"
+    user                = "ec2-user"
+    private_key         = file("./vockey.pem")
+    host                = self.private_ip
+    bastion_host        = aws_instance.ec2_publica_nginx.public_ip
+    bastion_user        = "ec2-user"
+    bastion_private_key = file("./vockey.pem")
+  }
+
+  provisioner "file" {
+    source      = "scripts/backup_scripts/"
+    destination = "/home/ec2-user/"
+
+  }
+
+  provisioner "remote-exec" {
+    inline = ["chmod +x /home/ec2-user/create_backup.sh"]
+  }
 
   tags = {
     Name = "ec2-privada-BD"
@@ -303,15 +335,6 @@ resource "aws_instance" "ec2_privada_bd" {
 }
 
 # Instância EC2 privada (Back-End)
-data "aws_iam_role" "lab_role" {
-  name = "LabRole"
-}
-
-resource "aws_iam_instance_profile" "ec2_back_profile" {
-  name = "LabRole"
-  role = data.aws_iam_role.lab_role.name
-}
-
 resource "aws_instance" "ec2_privada_be" {
   ami                         = "ami-00ca32bbc84273381"
   instance_type               = "t2.micro"
@@ -320,7 +343,7 @@ resource "aws_instance" "ec2_privada_be" {
   vpc_security_group_ids      = [aws_security_group.sg_privada_back.id]
   private_ip                  = "10.0.0.201"
   associate_public_ip_address = false
-  iam_instance_profile        = aws_iam_instance_profile.ec2_back_profile.name
+  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
 
   user_data = join("\n\n", [
     "#!/bin/bash",
@@ -367,7 +390,40 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.route_table_privada.id
 }
 
-# Bucket
+# Bucket Backup S3
+resource "aws_s3_bucket" "meu_bucket" {
+  bucket        = "bucket-bkp-g3"
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_public_access_block" "bloco_acesso_publico_s3_bkp" {
+  bucket = aws_s3_bucket.meu_bucket.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_policy" "politica_acesso_publico_bucket_bkp" {
+  bucket = aws_s3_bucket.meu_bucket.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect    = "Allow",
+        Principal = "*",
+        Action    = ["s3:GetObject", "s3:PutObject"],
+        Resource  = "${aws_s3_bucket.meu_bucket.arn}/*"
+      }
+    ]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.bloco_acesso_publico_s3_bkp]
+}
+
+# Bucket Imagens S3
 variable "bucket_name" {
   description = "Nome único do bucket S3"
   type        = string
@@ -386,7 +442,7 @@ resource "aws_s3_object" "directory_files" {
   source   = "./Imagens_S3/${each.value}"
 }
 
-resource "aws_s3_bucket_public_access_block" "bloco_acesso_publico_s3" {
+resource "aws_s3_bucket_public_access_block" "bloco_acesso_publico_s3_imagens" {
   bucket = aws_s3_bucket.bucket_g3.bucket
   block_public_acls       = false
   block_public_policy     = false
@@ -394,7 +450,7 @@ resource "aws_s3_bucket_public_access_block" "bloco_acesso_publico_s3" {
   restrict_public_buckets = false
 }
 
-resource "aws_s3_bucket_policy" "politica_acesso_publico_bucket" {
+resource "aws_s3_bucket_policy" "politica_acesso_publico_bucket_imagens" {
   bucket = aws_s3_bucket.bucket_g3.id
 
   policy = jsonencode({
@@ -412,5 +468,5 @@ resource "aws_s3_bucket_policy" "politica_acesso_publico_bucket" {
     ]
 })
 
-  depends_on = [aws_s3_bucket_public_access_block.bloco_acesso_publico_s3]
+  depends_on = [aws_s3_bucket_public_access_block.bloco_acesso_publico_s3_imagens]
 }
